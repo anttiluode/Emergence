@@ -6,7 +6,8 @@ EDIT: Emergence2 with 'hunters': https://github.com/anttiluode/Emergence2
 
 **A GPU world where genomes are token sequences, a transformer reads them, and the
 cells it builds live, eat, share, steal, signal, divide, die and evolve on a large
-grid. Nothing about organisms, bodies or behaviour is written in. The question is only:
+grid. The machinery is designed (cells, bodies, sharing, attaching, dividing); what
+it builds is not. No shape, organism or territory is scripted. The question is only:
 what grows?**
 
 ```
@@ -76,8 +77,10 @@ birth, whether the child **stays attached** to the parent's body or leaves.
 
 **A body** is the set of cells descended from one founder through births that stayed
 attached. Sharing works only inside a body. Whether births stay attached is the
-genome's decision, so multicellular organisms are not defined into the world. They
-exist only if lineages that hold together do better. A mutation inside a body does not
+genome's decision, so no particular organism is defined into the world: the body
+mechanism is designed, but which lineages use it, and how, is left to selection.
+Note that a body is an inherited label, not a connected shape: a body that loses its
+middle keeps its identity in pieces until those pieces die. A mutation inside a body does not
 cut it apart (a somatic mutation: the body becomes a mosaic).
 
 **Energy** enters only as food, which regrows fast under 7 slowly drifting "suns" and

@@ -42,7 +42,9 @@ python inspect_world.py runs/night1/ckpt_1000000.pt    # who is alive and what t
 ```
 
 Viewer: `1`–`8` switch views (life, bodies, clades, food, signals, state, energy, age);
-`SPACE` pause; `+`/`-` steps per frame; **left drag wipes cells** (damage the
+`SPACE` pause; `+`/`-` steps per frame; **`Z` zoom box**: aim it with the mouse, `+`/`-`
+to resize it, left click to zoom in (repeat to go deeper), arrows pan, `Backspace` zooms
+out one level, `0` shows the whole world; **left drag wipes cells** (damage the
 organisms and watch whether anything repairs); `F` then left drag pours food; right click
 a cell to see its genome; `R` drops 500 fresh random cells (abiogenesis); `S` saves,
 `P` screenshots, `V` records video.

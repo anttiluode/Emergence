@@ -13,7 +13,16 @@ def _hue(x):
 
 
 @torch.no_grad()
-def render(world, view="life"):
+def render(world, view="life", region=None):
+    """region = (y0, y1, x0, x1) crops on the device before copying to the CPU."""
+    img = _render(world, view)
+    if region is not None:
+        y0, y1, x0, x1 = region
+        img = img[y0:y1, x0:x1]
+    return img.cpu().numpy()
+
+
+def _render(world, view):
     a = world.alive
     af = a.float()[..., None]
     food = world.food.clamp(0, 1)[..., None]
@@ -52,4 +61,4 @@ def render(world, view="life"):
         img = af * torch.stack([ag, 0.4 * (1 - ag), 1 - ag], -1) + (1 - af) * ground
     else:
         raise ValueError(view)
-    return (img.clamp(0, 1) * 255).to(torch.uint8).cpu().numpy()
+    return (img.clamp(0, 1) * 255).to(torch.uint8)

@@ -9,7 +9,9 @@
 
 Viewer keys
     1..8     view: life, bodies, clades, food, signals, state, energy, age
-    SPACE    pause            + / -   steps per frame
+    SPACE    pause            + / -   steps per frame (or zoom-box size while choosing)
+    Z        zoom box: aim it, + / - to size it, left click to zoom in (can repeat)
+    BACKSPACE     zoom out one level      0   whole world      arrows  pan while zoomed
     left drag     wipe cells (damage)      mouse wheel  brush size
     right click   inspect the genome under the cursor
     F + left drag pour food
@@ -140,6 +142,10 @@ def viewer(w, args):
     clock = pygame.time.Clock()
 
     view, paused, spf, brush, show_panel = "life", False, 2, 10, True
+    VW, VH = cfg.W * scale, cfg.H * scale            # viewport in screen pixels
+    cams = [(0, 0, cfg.H, cfg.W)]                     # zoom stack: (y0, x0, h, w) in cells
+    selecting = False                                 # zoom box follows the mouse
+    box_w = max(16, cfg.W // 4)                       # zoom box width in cells
     feeding, inspect, rec = False, None, None
     hist = {k: [] for k in ["population", "genomes", "mean_depth", "body_size_cellweighted",
                             "mean_genome_len"]}
@@ -148,8 +154,28 @@ def viewer(w, args):
     os.makedirs(args.out, exist_ok=True)
 
     def to_world(pos):
-        return pos[1] // scale, pos[0] // scale
+        y0, x0, h, wd = cams[-1]
+        return int(y0 + pos[1] * h / VH), int(x0 + pos[0] * wd / VW)
 
+    def box_rect(pos):
+        """Zoom box (y0, x0, h, w) in world cells, centred on the mouse, kept inside
+        the current view and with the world's aspect ratio."""
+        cy0, cx0, ch, cw = cams[-1]
+        bw = int(box_w if box_w < cw else max(8, cw // 2))   # inside a zoom: half the view
+        bh = max(4, int(round(bw * cfg.H / cfg.W)))
+        bh = min(bh, ch)
+        y, x = to_world(pos)
+        y0 = int(np.clip(y - bh // 2, cy0, cy0 + ch - bh))
+        x0 = int(np.clip(x - bw // 2, cx0, cx0 + cw - bw))
+        return y0, x0, bh, bw
+
+    def pan(dy, dx):
+        y0, x0, h, wd = cams[-1]
+        y0 = int(np.clip(y0 + dy * max(1, h // 8), 0, cfg.H - h))
+        x0 = int(np.clip(x0 + dx * max(1, wd // 8), 0, cfg.W - wd))
+        cams[-1] = (y0, x0, h, wd)
+
+    zoom_click = False
     running = True
     while running:
         for ev in pygame.event.get():
@@ -163,10 +189,30 @@ def viewer(w, args):
                     view = VIEWS[k - pygame.K_1]
                 elif k == pygame.K_SPACE:
                     paused = not paused
+                elif k == pygame.K_z:
+                    selecting = not selecting
+                    if selecting and box_w >= cams[-1][3]:
+                        box_w = max(8, cams[-1][3] // 2)
+                elif k == pygame.K_BACKSPACE:
+                    if len(cams) > 1:
+                        cams.pop()
+                    selecting = False
+                elif k in (pygame.K_0, pygame.K_KP0):
+                    del cams[1:]
+                    selecting = False
+                elif k in (pygame.K_LEFT, pygame.K_RIGHT, pygame.K_UP, pygame.K_DOWN):
+                    pan({pygame.K_UP: -1, pygame.K_DOWN: 1}.get(k, 0),
+                        {pygame.K_LEFT: -1, pygame.K_RIGHT: 1}.get(k, 0))
                 elif k in (pygame.K_PLUS, pygame.K_EQUALS, pygame.K_KP_PLUS):
-                    spf = min(64, spf * 2)
+                    if selecting:
+                        box_w = int(min(cfg.W, box_w * 1.25 + 1))
+                    else:
+                        spf = min(64, spf * 2)
                 elif k in (pygame.K_MINUS, pygame.K_KP_MINUS):
-                    spf = max(1, spf // 2)
+                    if selecting:
+                        box_w = int(max(8, box_w / 1.25))
+                    else:
+                        spf = max(1, spf // 2)
                 elif k == pygame.K_r:
                     w.seed_life(500)
                 elif k == pygame.K_s:
@@ -192,12 +238,19 @@ def viewer(w, args):
                         print("recording stopped")
             elif ev.type == pygame.MOUSEWHEEL:
                 brush = int(np.clip(brush + ev.y * 2, 2, 80))
+            elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1 and selecting:
+                if ev.pos[0] < VW and ev.pos[1] < VH:
+                    cams.append(box_rect(ev.pos))
+                selecting = False
+                zoom_click = True
             elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 3:
                 y, x = to_world(ev.pos)
                 if 0 <= y < cfg.H and 0 <= x < cfg.W and bool(w.alive[y, x]):
                     inspect = int(w.gid[y, x])
         buttons = pygame.mouse.get_pressed()
-        if buttons[0]:
+        if not buttons[0]:
+            zoom_click = False          # the click that zoomed must not also wipe
+        if buttons[0] and not selecting and not zoom_click and pygame.mouse.get_pos()[0] < VW:
             y, x = to_world(pygame.mouse.get_pos())
             if 0 <= y < cfg.H and 0 <= x < cfg.W:
                 (w.feed if feeding else w.wipe)(y, x, brush)
@@ -216,24 +269,37 @@ def viewer(w, args):
             rate = (w.t - s_rate) / (now - t_rate)
             t_rate, s_rate = now, w.t
 
-        img = render(w, view)
+        cy0, cx0, ch, cw = cams[-1]
+        img = render(w, view, region=(cy0, cy0 + ch, cx0, cx0 + cw))
+        surf = pygame.surfarray.make_surface(np.ascontiguousarray(img.transpose(1, 0, 2)))
+        if (cw, ch) != (VW, VH):
+            surf = pygame.transform.scale(surf, (VW, VH))
         if rec is not None:
-            rec.append_data(img)
-        surf = pygame.surfarray.make_surface(img.transpose(1, 0, 2))
-        if scale != 1:
-            surf = pygame.transform.scale(surf, (cfg.W * scale, cfg.H * scale))
+            rec.append_data(pygame.surfarray.array3d(surf).transpose(1, 0, 2))
         screen.fill((14, 14, 18))
         screen.blit(surf, (0, 0))
         mx, my = pygame.mouse.get_pos()
-        if mx < cfg.W * scale:
-            pygame.draw.circle(screen, (255, 255, 255) if not feeding else (120, 255, 120),
-                               (mx, my), brush * scale, 1)
+        screen.set_clip((0, 0, VW, VH))
+        if mx < VW and my < VH:
+            if selecting:
+                by0, bx0, bh, bw = box_rect((mx, my))
+                rx = (bx0 - cx0) * VW / cw
+                ry = (by0 - cy0) * VH / ch
+                pygame.draw.rect(screen, (255, 230, 120),
+                                 (rx, ry, bw * VW / cw, bh * VH / ch), 2)
+            else:
+                pygame.draw.circle(screen, (255, 255, 255) if not feeding else (120, 255, 120),
+                                   (mx, my), max(2, int(brush * VW / cw)), 1)
+        screen.set_clip(None)
 
         if show_panel:
             x0, y = cfg.W * scale + 14, 10
             lines = [f"EMERGENCE   t={w.t}", f"view [{VIEWS.index(view)+1}] {view}",
                      f"{rate:.0f} steps/s   x{spf}/frame" + ("   PAUSED" if paused else ""),
-                     f"brush {brush}  {'FOOD' if feeding else 'wipe'}" + ("  REC" if rec else ""), ""]
+                     f"brush {brush}  {'FOOD' if feeding else 'wipe'}" + ("  REC" if rec else ""),
+                     (f"zoom x{cfg.W / cw:.1f}  at ({cx0},{cy0})  level {len(cams) - 1}"
+                      if len(cams) > 1 else "zoom x1")
+                     + ("   BOX: click, +/- size" if selecting else ""), ""]
             for k, lab in LABELS:
                 v = last_m.get(k)
                 if v is not None:

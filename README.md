@@ -1,5 +1,7 @@
 # Emergence
 
+EDIT: Emergence2 with 'hunters': https://github.com/anttiluode/Emergence2
+
 ![pic](pic.png)
 
 **A GPU world where genomes are token sequences, a transformer reads them, and the

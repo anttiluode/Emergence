@@ -66,6 +66,10 @@ class World:
             dev = "cuda" if torch.cuda.is_available() else "cpu"
         self.device = torch.device(dev)
         self.gen = torch.Generator(device=self.device).manual_seed(cfg.seed)
+        if cfg.max_genomes <= 0:
+            # a big world holds far more distinct genomes; a full table silently
+            # blocks mutation, so size it from the area (1 slot per 16 sites, min 32768)
+            cfg.max_genomes = max(32768, (cfg.H * cfg.W) // 16)
         H, W, C, Q = cfg.H, cfg.W, cfg.n_state, cfg.n_signal
 
         self.n_actions = C + Q + 1 + 1 + 1 + 4 + 1 + 1
@@ -389,7 +393,9 @@ class World:
         live = cnt > 0
         m = {"t": self.t, "population": pop, "genomes": int(live.sum()),
              "births": int(self.births), "deaths": int(self.deaths),
-             "mutations": self.pool.total_mutations, "reseeds": self.reseeds,
+             "mutations": self.pool.total_mutations, "mutations_blocked": self.pool.blocked,
+             "genome_table_used": float(live.sum()) / cfg.max_genomes,
+             "reseeds": self.reseeds,
              "food": float(self.food.mean())}
         if pop:
             c = cnt[live].float()
@@ -430,9 +436,11 @@ class World:
         return d
 
     def load_state_dict(self, d):
-        for k in ["alive", "gid", "body", "energy", "S", "age", "food", "sig", "sun_pos", "sun_vel",
-                  "gamma", "beta", "obias", "color", "lin_state"]:
+        for k in ["alive", "gid", "body", "energy", "S", "age", "food", "sig", "sun_pos", "sun_vel"]:
             setattr(self, k, d[k].to(self.device))
+        for k in ["gamma", "beta", "obias", "color", "lin_state"]:   # per-genome tables
+            src = d[k].to(self.device)
+            getattr(self, k)[:src.shape[0]] = src     # a resumed world may get a bigger table
         self.pool.load_state_dict({k: (v.to(self.device) if torch.is_tensor(v) else v)
                                    for k, v in d["pool"].items()})
         self.next_body = d.get("next_body", 0)

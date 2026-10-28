@@ -24,7 +24,7 @@ class Config:
     vocab: int = 32                # token alphabet (0 = PAD)
     genome_max: int = 48           # max tokens per genome
     genome_init_len: int = 16
-    max_genomes: int = 32768       # slots in the genome table (live + reusable)
+    max_genomes: int = 0           # genome table slots; 0 = auto (scales with world area)
     mutation_rate: float = 0.03    # probability a birth carries a mutated genome
 
     # ---- translator (the transformer that reads genomes) ----------------------

@@ -30,6 +30,7 @@ class GenomePool:
         self.born = torch.zeros(G, dtype=torch.long, device=device)
         self.next_clade = 0
         self.total_mutations = 0
+        self.blocked = 0          # mutations dropped because the table was full
 
     # ------------------------------------------------------------------ helpers
     def _rand(self, *shape):
@@ -74,6 +75,7 @@ class GenomePool:
         cfg = self.cfg
         slots = self.free_slots(parents.numel())
         n = slots.numel()
+        self.blocked += parents.numel() - n
         if n == 0:
             return slots
         parents = parents[:n]
@@ -143,11 +145,14 @@ class GenomePool:
     def state_dict(self):
         return {k: getattr(self, k) for k in
                 ["tokens", "length", "count", "clade", "depth", "parent", "born"]} | {
-                "next_clade": self.next_clade, "total_mutations": self.total_mutations}
+                "next_clade": self.next_clade, "total_mutations": self.total_mutations,
+                "blocked": self.blocked}
 
     def load_state_dict(self, d):
         for k in ["tokens", "length", "count", "clade", "depth", "parent", "born"]:
-            getattr(self, k).copy_(d[k])
+            src = d[k]
+            getattr(self, k)[:src.shape[0]] = src      # table may have grown on resume
         self.next_clade = d["next_clade"]
         self.total_mutations = d["total_mutations"]
+        self.blocked = d.get("blocked", 0)
         self.reserved.zero_()

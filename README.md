@@ -47,6 +47,12 @@ organisms and watch whether anything repairs); `F` then left drag pours food; ri
 a cell to see its genome; `R` drops 500 fresh random cells (abiogenesis); `S` saves,
 `P` screenshots, `V` records video.
 
+**Big worlds:** the genome table now sizes itself from the world area (1 slot per 16
+sites, at least 32,768; 122,880 for 1920×1024). A full table silently blocks mutation, so
+the viewer shows `genome table used` and `mutations blocked`; if blocked climbs, raise
+it with `--set max_genomes=...`. A world saved with a smaller table can be resumed into a
+bigger one: `python run.py --load ckpt.pt --set max_genomes=131072`.
+
 Every law of the world is a field in [`emergence/config.py`](emergence/config.py) and
 can be changed from the command line, e.g. `--set regulation=0 --set attack_rate=0.25`.
 

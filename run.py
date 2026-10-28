@@ -2,6 +2,7 @@
 
     python run.py                          # live viewer (pygame), default 384x384
     python run.py --size 512               # bigger world
+    python run.py --width 1920 --height 1024    # widescreen world
     python run.py --headless --steps 200000 --out runs/night1 --video
     python run.py --load runs/night1/ckpt_200000.pt     # continue a saved world
     python run.py --set mutation_rate=0.05 --set regulation=0   # change a law
@@ -34,6 +35,10 @@ def build(args):
     cfg = Config()
     if args.size:
         cfg.H = cfg.W = args.size
+    if args.width:
+        cfg.W = args.width
+    if args.height:
+        cfg.H = args.height
     cfg.seed = args.seed
     for kv in args.set or []:
         k, v = kv.split("=", 1)
@@ -118,7 +123,9 @@ LABELS = [("population", "cells"), ("bodies", "organisms"),
           ("max_depth", "mutations (max)"), ("mean_genome_len", "genome length"),
           ("kin_neighbours", "body-mate neighbours"), ("stranger_neighbours", "stranger neighbours"),
           ("top_genome_share", "top genome share"), ("mean_energy", "energy / cell"),
-          ("mean_age", "age / cell"), ("mutations", "mutations total"), ("reseeds", "reseeds")]
+          ("mean_age", "age / cell"), ("mutations", "mutations total"),
+          ("mutations_blocked", "mutations blocked"), ("genome_table_used", "genome table used"),
+          ("reseeds", "reseeds")]
 def viewer(w, args):
     import pygame
     pygame.init()
@@ -274,6 +281,8 @@ def viewer(w, args):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--size", type=int, default=0)
+    ap.add_argument("--width", type=int, default=0)
+    ap.add_argument("--height", type=int, default=0)
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--set", action="append", help="override a law, e.g. --set regulation=0")
     ap.add_argument("--load", type=str, default="")

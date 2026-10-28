@@ -1,5 +1,7 @@
 # Emergence
 
+![pic](pic.png)
+
 **A GPU world where genomes are token sequences, a transformer reads them, and the
 cells it builds live, eat, share, steal, signal, divide, die and evolve on a large
 grid. Nothing about organisms, bodies or behaviour is written in. The question is only:
